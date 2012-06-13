@@ -17,7 +17,9 @@ ini_set('display_errors', 'On');
 
 function __autoload($class_name)
 {
-  require_once(dirname(__FILE__)."/classes/{$class_name}.class.php");
+  $fname = dirname(__FILE__)."/classes/{$class_name}.class.php";
+  if(!file_exists($fname)) dprint("Class not found: $class_name");
+  require_once($fname);
 }
 spl_autoload_register('__autoload');
 
@@ -26,88 +28,71 @@ foreach(glob("lib/*.php") as $lib_fname)
   require($lib_fname);
 }
 
+AudioMixer::init(dirname(__FILE__),dirname(__FILE__)."/tmp/audio");
+AudioClip::init(dirname(__FILE__),dirname(__FILE__)."/tmp/audio");
+VideoMixer::init(dirname(__FILE__),dirname(__FILE__)."/tmp/video");
 
 
 define('EXT', 'png');
 
+AudioMixer::$tmp_path = dirname(__FILE__)."/tmp/audio";
+
+$a = new AudioMixer();
+$a->add(dirname(__FILE__)."/".$argv[1], 'main')->applyEffect('Louden');
+$a->add(dirname(__FILE__).'/assets/altro.m4v')->applyEffect('Louden');
+$a->add(dirname(__FILE__).'/assets/pad_intro.wav');
+$a->add(dirname(__FILE__).'/assets/pad_loop.wav');
+$a->add(dirname(__FILE__).'/assets/pad_altro.wav');
+$a->stitch('main');
+$a->stitch('altro');
+$a->applyEffect('BackgroundLoop', 0.10, 'pad_intro', 'pad_loop', 'pad_altro', 2*48000);
+dprint($a->export());
+
+$pad = new Audio( 'intro');
+$pad->add();
+$pad->add();
+$pad->stitch('pad_intro');
+$samples = $a->sample_count - $pad->clips['pad_intro']->sample_count - $pad->clips['pad_altro']->sample_count;
+while($samples>0)
+{
+  $pad->stitch('pad_loop');
+  $samples -= $pad->clips['pad_loop']->sample_count;
+}
+$pad->stitch('pad_altro');
+$pad->applyEffect('fadeout', 'pad_altro', 'end');
+$a->applyEffect('mix', 'main');
+
+
+$a->stitch('main');
+$a->applyEffect('loop', 'main', 'end');
+
+Video::$tmp_path = dirname(__FILE__)."/tmp/video";
 Video::registerPlugin('fadein', new FadeinEffect());
 Video::registerPlugin('animation', new AnimationEffect());
 Video::registerPlugin('byline', new BylineEffect());
 Video::registerPlugin('crossfade', new CrossfadeEffect());
+Video::$cp = new ParallelCommandProcessor();
 
-
-$v = new Video('clip3.mov');
-$v->add('preroll.m4v');
-$v->add('intro.m4v');
-$v->add('altro.m4v');
-$v->add('postroll.m4v');
+$v = new Video(dirname(__FILE__)."/".$argv[1], 'main');
+$v->add(dirname(__FILE__).'/assets/preroll.m4v');
+$v->add(dirname(__FILE__).'/assets/intro.m4v');
+$v->add(dirname(__FILE__).'/assets/altro.m4v');
+$v->add(dirname(__FILE__).'/assets/postroll.m4v');
 
 $v->stitch('preroll');
 $v->stitch('intro');
-$v->stitch('clip3');
+$v->stitch('main');
 $v->stitch('altro');
 $v->stitch('postroll');
-$v->applyEffect('animation', 'clip3', 'altro', 'countdown_main.mp4', 'countdown_pulse.mp4');
+$v->applyEffect('animation', 'main', 'altro', dirname(__FILE__).'/assets/countdown_main.mp4', dirname(__FILE__).'/assets/countdown_pulse.mp4');
+dprint('done');
 $v->applyEffect('byline', 'intro', 'postroll', '90 Second Lessons', 'Fun, expert instruction. Straight to the point.', '$19.99 monthly. Sign up at http://coaching.benallfree.com.');
 $v->applyEffect('fadein', 'preroll', 30);
 $v->applyEffect('crossfade', new Marker('intro', -30), new Marker('intro', 30));
-$v->applyEffect('crossfade', new Marker('clip3', -30), new Marker('clip3', 30));
+$v->applyEffect('crossfade', new Marker('main', -30), new Marker('main', 30));
 $v->applyEffect('crossfade', new Marker('altro',-30), new Marker('altro', 30));
 $v->applyEffect('crossfade', new Marker('postroll', -30), new Marker('postroll', 30));
 dprint($v->export());
-
-
-dprint('done');
-$counter = new VideoLoop('countdown_main.mp4', 'counter_pulse.mp4');
-$v->addOverlay($counter, 'clip3', 'altro');
-
-$text = new TextBlock('line1', 'line2');
-$v->addOverlay($text, 'intro', 'postroll');
-$v->applyEffect('fadein', 'preroll');
-$v->applyEffect('crossfade','intro');
-$v->applyEffect('crossfade','clip3');
-$v->applyEffect('crossfade', 'altro');
-$v->applyEffect('fadeout', 'postroll');
-
-dprint($v->export());
-
-$intro = new Clip('intro.m4v');
-$intro_pad = new AudioLoop('pad_intro.wav', 'pad_loop.wav', 'pad_altro.wav');
-$intro_pad = $intro_pad->export($intro->duration);
-$intro->addAudioTrack();
-$intro_audio = $intro->audio->mix($intro_pad, 0.05);
-$intro->addAudioTrack($intro_pad);
-$intro->export('final.mp4');
-dprint('done');
-
-//system("rm tmp/*");
-$intro_pad = new AudioLoop('pad_intro.wav', 'pad_loop.wav', 'pad_altro.wav');
-$intro = new VideoStream('intro.m4v');
-$intro_pad->setDuration($intro->duration);
-$intro->addAudio($intro_pad, 0.05);
-dprint($intro->export('final.mp4'));
-
-$counter->setSize(100,75);
-$main = new VideoStream('main.mov');
-$main->addOverlay($counter);
-
-$remainder_pad = new AudioLoop('pad_intro.wav', 'pad_loop.wav', 'pad_altro.wav');
-
-$main = $main->fadeIn(.25)
-  ->fadeTo('altro.m4v')
-  ->fadeTo('postroll.m4v')
-  ->finalize()
-  ->addBackgroundAudio($remainder_pad)
-  ->finalize();
-
-$preroll = new VideoStream('preroll.m4v');
-$final = $preroll->fadeIn()
-  ->fadeTo('intro.m4v')
-  ->fadeOut($main, .25);
-
-$final->export('final.mp4');
-
-dprint($final);
 
 ?>
 

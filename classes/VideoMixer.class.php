@@ -1,8 +1,29 @@
 <?
 
-class Video
+class VideoMixer
 {
   static $plugins = array();
+  static $tmp_path = null;
+  static $cp = null;
+  
+  static function init($path, $tmp_path)
+  {
+    self::$tmp_path = $tmp_path;
+    if(!self::$cp)
+    {
+      self::$cp = new SingleCommandProcessor(self::$tmp_path, 'mpg');
+    }
+
+    foreach(glob($path."/plugins/VideoMixer_*.php") as $fname)
+    {
+      require_once($fname);
+      preg_match("/VideoMixer_(.+).class.php/", $fname, $matches);
+      $effect_name = $matches[1];
+      $class_name = "VideoMixer_{$effect_name}";
+      $obj = new $class_name();
+      self::registerPlugin($effect_name, $obj);
+    }
+  }
   static function registerPlugin($key, $obj)
   {
     self::$plugins[$key] = $obj;
@@ -10,13 +31,13 @@ class Video
   
   function __construct($fname, $marker_name=null)
   {
-    $this->stitch_limit = 500;
+    $this->stitch_limit = 100;
     $this->frames = array();
     $this->frame_count = 0;
     $this->markers = array();
     $this->assets = array();
     $this->md5 = $this->key($fname);
-    $this->fpath = "tmp/master.{$this->md5}";
+    $this->fpath = self::$tmp_path."/master.{$this->md5}";
     if(file_exists($this->fpath))
     {
       cmd("rm -rf ?", $this->fpath);
@@ -28,13 +49,15 @@ class Video
   
   function key($fname)
   {
+    if(!file_exists($fname)) dprint("File not found: $fname");
     return md5(EXT.md5_file($fname));
   }
   
   function add($fname, $asset_name = null)
   {
+    if(!file_exists($fname)) dprint("File not found: $fname");
     $md5 = $this->key($fname);
-    $unpacked_fname = "tmp/$md5";
+    $unpacked_fname = self::$tmp_path."/$md5";
     if(!file_exists($unpacked_fname))
     {
       mkdir($unpacked_fname);
@@ -62,27 +85,6 @@ class Video
     {
       $this->frames[] = sprintf("%s/%010d.%s", $fpath, $i,EXT);
     }
-  }
-  
-  function apply($frame_idx, $cmd)
-  {
-    $args = func_get_args();
-    $frame_idx = array_shift($args);
-    $cmd = array_shift($args);
-    $src_frame_fname = $this->frames[$frame_idx];
-    $cmd = str_replace("<in>", "\"{$src_frame_fname}\"", $cmd);
-    $key = $args;
-    $key[] = $cmd;
-    $key[] = EXT;
-    $key = md5(join(':',$key));
-    $dst_frame_fname = "tmp/frames/$key.".EXT;
-    if(!file_exists($dst_frame_fname))
-    {
-      $cmd = str_replace("<out>", "\"{$dst_frame_fname}\"", $cmd);
-      array_unshift($args, $cmd);
-      call_user_func_array('cmd', $args);
-    }
-    $this->frames[$frame_idx] = $dst_frame_fname;
   }
   
   function applyEffect()
@@ -117,10 +119,9 @@ class Video
     $frame_count = $stop_frame - $start_frame + 1;
     $frames = array_slice($this->frames, $start_frame, $frame_count);
     array_unshift($args, $frames);
-    $cp = new SingleCommandProcessor();
-    array_unshift($args, $cp);
+    array_unshift($args, self::$cp);
     $new_frames = call_user_func_array(array(self::$plugins[$effect_name], 'process'), $args);
-    $cp->process();
+    self::$cp->process();
     $frame_diff = count($new_frames)-$frame_count;
     foreach($this->markers as $k=>$v)
     {

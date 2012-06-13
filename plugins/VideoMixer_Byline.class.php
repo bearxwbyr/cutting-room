@@ -1,8 +1,8 @@
 <?
 
-class BylineEffect
+class VideoMixer_Byline
 {
-  function process($cp, $frames, $line1, $line2=null, $line3=null)
+  function process($frames, $line1, $line2=null, $line3=null)
   {
     $w = 640;
     $bw = $w+2;
@@ -18,10 +18,10 @@ class BylineEffect
     );
     $filters = join(' ', $filters);
     $cmd_template = "convert ? ! <out>"; 
-    $cp->setTemplate($cmd_template);
+    VideoMixer::$cp->setTemplate($cmd_template);
     for($i=0;$i<count($frames);$i++)
     {
-      $frames[$i] = $cp->add($frames[$i], $filters);
+      $frames[$i] = VideoMixer::$cp->add($frames[$i], $filters);
     }
     return $frames;
   }
