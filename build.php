@@ -37,22 +37,43 @@ define('EXT', 'png');
 
 AudioMixer::$tmp_path = dirname(__FILE__)."/tmp/audio";
 
-$a = new AudioMixer();
-$a->add(dirname(__FILE__)."/".$argv[1], 'main')->applyEffect('Louden');
-$a->add(dirname(__FILE__).'/assets/altro.m4v')->applyEffect('Louden');
-$a->add(dirname(__FILE__).'/assets/pad_intro.wav');
-$a->add(dirname(__FILE__).'/assets/pad_loop.wav');
-$a->add(dirname(__FILE__).'/assets/pad_altro.wav');
-$a->stitch('main');
-$a->stitch('altro');
-$a->applyEffect('BackgroundLoop', 0.10, 'pad_intro', 'pad_loop', 'pad_altro', 2*48000);
-dprint($a->export());
+$main= new AudioMixer();
+$main->add(dirname(__FILE__)."/".$argv[1], 'main')->applyEffect('Louden');
+$main->add(dirname(__FILE__).'/assets/altro.m4v')->applyEffect('Louden');
+$main->add(dirname(__FILE__).'/assets/pad_intro.wav');
+$main->add(dirname(__FILE__).'/assets/pad_loop.wav');
+$main->add(dirname(__FILE__).'/assets/pad_altro.wav');
+$main->stitch('main');
+$main->stitch('altro');
+$main->applyEffect('BackgroundLoop', 0.10, 'pad_intro', 'pad_loop', 'pad_altro', array(
+  'extra_samples'=>2*48000
+));
+
+$intro = new AudioMixer();
+$intro->add(dirname(__FILE__).'/assets/intro.m4v')->applyEffect('Louden');
+$intro->add(dirname(__FILE__).'/assets/pad_intro.wav');
+$intro->add(dirname(__FILE__).'/assets/pad_loop.wav');
+$intro->add(dirname(__FILE__).'/assets/pad_altro.wav');
+$intro->stitch('intro');
+$intro->applyEffect('BackgroundLoop', 0.10, 'pad_intro', 'pad_loop', 'pad_altro', array(
+  'ending'=>'trim',
+));
+
+$final = new AudioMixer();
+$final->add($main,'main');
+$final->add($intro, 'intro');
+$final->stitch('intro');
+$final->stitch('main');
+
+dprint($final->export());
+
+dprint($main->export());
 
 $pad = new Audio( 'intro');
 $pad->add();
 $pad->add();
 $pad->stitch('pad_intro');
-$samples = $a->sample_count - $pad->clips['pad_intro']->sample_count - $pad->clips['pad_altro']->sample_count;
+$samples = $main->sample_count - $pad->clips['pad_intro']->sample_count - $pad->clips['pad_altro']->sample_count;
 while($samples>0)
 {
   $pad->stitch('pad_loop');
@@ -60,11 +81,11 @@ while($samples>0)
 }
 $pad->stitch('pad_altro');
 $pad->applyEffect('fadeout', 'pad_altro', 'end');
-$a->applyEffect('mix', 'main');
+$main->applyEffect('mix', 'main');
 
 
-$a->stitch('main');
-$a->applyEffect('loop', 'main', 'end');
+$main->stitch('main');
+$main->applyEffect('loop', 'main', 'end');
 
 Video::$tmp_path = dirname(__FILE__)."/tmp/video";
 Video::registerPlugin('fadein', new FadeinEffect());

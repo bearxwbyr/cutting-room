@@ -40,7 +40,13 @@ class AudioMixer
   {
     if(is_a($clip, 'AudioClip'))
     {
-    } else {
+    }
+    if(is_a($clip, 'AudioMixer'))
+    {
+      $clip = $clip->mixdown;
+    }
+    if(is_string($clip))
+    {
       if(!$clip_name) 
       {
         $parts = pathinfo($clip);
