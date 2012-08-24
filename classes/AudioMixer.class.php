@@ -11,7 +11,7 @@ class AudioMixer
     self::$tmp_path = $tmp_path;
     if(!self::$cp)
     {
-      self::$cp = new SingleCommandProcessor(self::$tmp_path, 'wav');
+      self::$cp = new SingleCommandProcessor(self::$tmp_path);
     }
 
     foreach(glob($path."/plugins/AudioMixer_*.php") as $fname)
@@ -66,7 +66,7 @@ class AudioMixer
     {
       $this->mixdown = $this->clips[$clip_name];
     } else {
-      $wav = self::$cp->exec("sox -G ? ? <out>", $this->mixdown->fname, $this->clips[$clip_name]->fname);
+      $wav = self::$cp->exec("sox -G ? ? <out.!>", $this->mixdown->fname, $this->clips[$clip_name]->fname, AUDIO_EXT);
       $this->mixdown = new AudioClip($wav);
     }
     return $this->mixdown;

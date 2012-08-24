@@ -14,21 +14,19 @@ class AudioMixer_BackgroundLoop
     if(isset($options['extra_samples'])) $extra_samples = $options['extra_samples'];
     $samples_needed = $mixer->mixdown->sample_count - $mixer->clips[$pre]->sample_count - $mixer->clips[$post]->sample_count + $extra_samples;
     $i = $samples_needed;
-    dprint($samples_needed,false);
     while($i>0)
     {
       $m->stitch('loop');
       $i -= $mixer->clips[$loop]->sample_count; 
-      dprint($i,false);
     }
     $m->stitch('post');
     $m->applyEffect('Volume', $vol);
     if(isset($options['ending']))
     {
       $m->applyEffect('Trim', $samples_needed);
-      $m->applyEffect('Fadeout', 3*48000);
+      $m->applyEffect('Fadeout', 3*SAMPLE_RATE);
     }
-    $wav = AudioMixer::$cp->exec("sox -G  -m ? ? -b 24 <out> remix - gain -n    rate 48k", $mixer->mixdown->fname, $m->mixdown->fname);
+    $wav = AudioMixer::$cp->exec("sox -G  -m ? ? -b 24 <out.!> remix - gain -n    rate !", $mixer->mixdown->fname, $m->mixdown->fname, AUDIO_EXT, SAMPLE_RATE);
     return $wav;
   }
 }

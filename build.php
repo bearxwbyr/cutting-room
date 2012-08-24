@@ -1,41 +1,54 @@
-#!/bin/sh
 <?
-
-/*
-
-track  [fadein][pre][xfade][intro][xfade][main][xfade][altro][xfade][post][fadeout]
-track                      [in-au]       [mnau]       [al-au]       [ptau]
-track                      [text............................]
-track                      [pad..]       [pad.....................................]
-track                                    [cntr]
+require('init.php');
 
 
+$v = new VideoMixer(dirname(__FILE__)."/".$argv[1], 'main');
+$v->stitch_limit=0;//FRAME_RATE*20;
+$v->stitch('main');
+$v->applyEffect('Animation', 'main', 'end', dirname(__FILE__).'/assets/countdown_main.mp4', dirname(__FILE__).'/assets/countdown_pulse.mp4');
+//$v->applyEffect('Byline', 'main', 'end', '90 Second Lessons', 'Fun, expert instruction. Straight to the point.', '$19.99 monthly. Sign up at http://coaching.benallfree.com.');
+$v->applyEffect('Fadein', 'main', FRAME_RATE);
+$v->applyEffect('Fadeout', new Marker('end', -FRAME_RATE));
 
-*/
-error_reporting(E_ALL|E_STRICT);
-ini_set('display_errors', 'On');
+$main= new AudioMixer();
+$main->add(dirname(__FILE__)."/".$argv[1], 'main')->applyEffect('Louden');
+$main->add(dirname(__FILE__).'/assets/pad_intro.wav');
+$main->add(dirname(__FILE__).'/assets/pad_loop.wav');
+$main->add(dirname(__FILE__).'/assets/pad_altro.wav');
+$main->stitch('main');
+$main->applyEffect('BackgroundLoop', 0.10, 'pad_intro', 'pad_loop', 'pad_altro', array(
+  'ending'=>true,
+));
 
-function __autoload($class_name)
-{
-  $fname = dirname(__FILE__)."/classes/{$class_name}.class.php";
-  if(!file_exists($fname)) dprint("Class not found: $class_name");
-  require_once($fname);
-}
-spl_autoload_register('__autoload');
+dprint($main->export(),false);
 
-foreach(glob("lib/*.php") as $lib_fname)
-{
-  require($lib_fname);
-}
-
-AudioMixer::init(dirname(__FILE__),dirname(__FILE__)."/tmp/audio");
-AudioClip::init(dirname(__FILE__),dirname(__FILE__)."/tmp/audio");
-VideoMixer::init(dirname(__FILE__),dirname(__FILE__)."/tmp/video");
+$out_fname = $v->export($main);
+copy($out_fname, 'test.mp4');
+dprint($out_fname);
 
 
-define('EXT', 'png');
+dprint('done');
 
-AudioMixer::$tmp_path = dirname(__FILE__)."/tmp/audio";
+
+$v = new VideoMixer(dirname(__FILE__)."/".$argv[1], 'main');
+$v->add(dirname(__FILE__).'/assets/preroll.m4v');
+$v->add(dirname(__FILE__).'/assets/intro.m4v');
+$v->add(dirname(__FILE__).'/assets/altro.m4v');
+$v->add(dirname(__FILE__).'/assets/postroll.m4v');
+
+$v->stitch('preroll');
+$v->stitch('intro');
+$v->stitch('main');
+$v->stitch('altro');
+$v->stitch('postroll');
+$v->applyEffect('Animation', 'main', 'altro', dirname(__FILE__).'/assets/countdown_main.mp4', dirname(__FILE__).'/assets/countdown_pulse.mp4');
+$v->applyEffect('Byline', 'intro', 'postroll', '90 Second Lessons', 'Fun, expert instruction. Straight to the point.', '$19.99 monthly. Sign up at http://coaching.benallfree.com.');
+$v->applyEffect('Fadein', 'preroll', FRAME_RATE);
+$v->applyEffect('Crossfade', new Marker('intro', -FRAME_RATE), new Marker('intro', FRAME_RATE));
+$v->applyEffect('Crossfade', new Marker('main', -FRAME_RATE), new Marker('main', FRAME_RATE));
+$v->applyEffect('Crossfade', new Marker('altro',-FRAME_RATE), new Marker('altro', FRAME_RATE));
+$v->applyEffect('Crossfade', new Marker('postroll', -FRAME_RATE), new Marker('postroll', FRAME_RATE));
+
 
 $main= new AudioMixer();
 $main->add(dirname(__FILE__)."/".$argv[1], 'main')->applyEffect('Louden');
@@ -46,7 +59,7 @@ $main->add(dirname(__FILE__).'/assets/pad_altro.wav');
 $main->stitch('main');
 $main->stitch('altro');
 $main->applyEffect('BackgroundLoop', 0.10, 'pad_intro', 'pad_loop', 'pad_altro', array(
-  'extra_samples'=>2*48000
+  'extra_samples'=>2*SAMPLE_RATE
 ));
 
 $intro = new AudioMixer();
@@ -64,56 +77,13 @@ $final->add($main,'main');
 $final->add($intro, 'intro');
 $final->stitch('intro');
 $final->stitch('main');
+$start_frame = $v->markers['intro'];
+$start_samples = (SAMPLE_RATE*$start_frame)/FRAME_RATE;
+$final->applyEffect('Pad', $start_samples, 0);
 
-dprint($final->export());
+dprint($final->export(),false);
 
-dprint($main->export());
-
-$pad = new Audio( 'intro');
-$pad->add();
-$pad->add();
-$pad->stitch('pad_intro');
-$samples = $main->sample_count - $pad->clips['pad_intro']->sample_count - $pad->clips['pad_altro']->sample_count;
-while($samples>0)
-{
-  $pad->stitch('pad_loop');
-  $samples -= $pad->clips['pad_loop']->sample_count;
-}
-$pad->stitch('pad_altro');
-$pad->applyEffect('fadeout', 'pad_altro', 'end');
-$main->applyEffect('mix', 'main');
-
-
-$main->stitch('main');
-$main->applyEffect('loop', 'main', 'end');
-
-Video::$tmp_path = dirname(__FILE__)."/tmp/video";
-Video::registerPlugin('fadein', new FadeinEffect());
-Video::registerPlugin('animation', new AnimationEffect());
-Video::registerPlugin('byline', new BylineEffect());
-Video::registerPlugin('crossfade', new CrossfadeEffect());
-Video::$cp = new ParallelCommandProcessor();
-
-$v = new Video(dirname(__FILE__)."/".$argv[1], 'main');
-$v->add(dirname(__FILE__).'/assets/preroll.m4v');
-$v->add(dirname(__FILE__).'/assets/intro.m4v');
-$v->add(dirname(__FILE__).'/assets/altro.m4v');
-$v->add(dirname(__FILE__).'/assets/postroll.m4v');
-
-$v->stitch('preroll');
-$v->stitch('intro');
-$v->stitch('main');
-$v->stitch('altro');
-$v->stitch('postroll');
-$v->applyEffect('animation', 'main', 'altro', dirname(__FILE__).'/assets/countdown_main.mp4', dirname(__FILE__).'/assets/countdown_pulse.mp4');
-dprint('done');
-$v->applyEffect('byline', 'intro', 'postroll', '90 Second Lessons', 'Fun, expert instruction. Straight to the point.', '$19.99 monthly. Sign up at http://coaching.benallfree.com.');
-$v->applyEffect('fadein', 'preroll', 30);
-$v->applyEffect('crossfade', new Marker('intro', -30), new Marker('intro', 30));
-$v->applyEffect('crossfade', new Marker('main', -30), new Marker('main', 30));
-$v->applyEffect('crossfade', new Marker('altro',-30), new Marker('altro', 30));
-$v->applyEffect('crossfade', new Marker('postroll', -30), new Marker('postroll', 30));
-dprint($v->export());
+dprint($v->export($final));
 
 ?>
 

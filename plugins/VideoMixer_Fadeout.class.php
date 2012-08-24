@@ -1,6 +1,6 @@
 <?
 
-class VideoMixer_Fadein
+class VideoMixer_Fadeout
 {
   function process($frames)
   {
@@ -8,7 +8,7 @@ class VideoMixer_Fadein
     $tween = new SinTween($frame_count);
     $cmd_template = "convert ? -fill black -colorize !% <out.!>";
     VideoMixer::$cp->setTemplate($cmd_template);
-    for($i=0;$i<$frame_count;$i++)
+    for($i=$frame_count-1;$i>0;$i--)
     {
       $frames[$i] = VideoMixer::$cp->add($frames[$i], $tween->step(), VIDEO_EXT);
     }

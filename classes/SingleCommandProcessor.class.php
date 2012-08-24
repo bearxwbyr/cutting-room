@@ -2,11 +2,10 @@
 
 class SingleCommandProcessor
 {
-  function __construct($path, $ext)
+  function __construct($path)
   {
     ensure_writable_folder($path);
     $this->path = $path;
-    $this->ext = $ext;
     $this->commands = array();
     $this->use_cache = true;
   }
@@ -32,10 +31,21 @@ class SingleCommandProcessor
     array_unshift($args, $this->template);
     $cmd = call_user_func_array('interpolate', $args);
     $md5 = md5(join(':',$args));
-    $dst_fname = $this->path."/$md5.".$this->ext;
-    if(!$this->use_cache || !file_exists($dst_fname))
+    ensure_writable_folder($this->path."/intermediate");
+    $dst_fname = $this->path."/intermediate/$md5";
+    $should_run = true;
+    $cmd = preg_replace_callback("/<(outdir)(.*)>/", function($matches) use (&$dst_fname, &$should_run) {
+      $should_run = !file_exists($dst_fname);
+      ensure_writable_folder($dst_fname);
+      return escapeshellarg($dst_fname . $matches[2]);
+    }, $cmd);
+    $cmd = preg_replace_callback("/<(out)(.*)>/", function($matches) use (&$dst_fname, &$should_run) {
+      $dst_fname .= $matches[2];
+      $should_run = !file_exists($dst_fname);
+      return escapeshellarg($dst_fname);
+    }, $cmd);
+    if(!$this->use_cache || $should_run)
     {
-      $cmd = str_replace("<out>", escapeshellarg($dst_fname), $cmd);
       $this->commands[] = $cmd;
     }
     return $dst_fname;

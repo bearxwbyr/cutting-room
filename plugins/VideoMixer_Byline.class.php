@@ -17,11 +17,11 @@ class VideoMixer_Byline
       interpolate("-pointsize 18 -font PontanoSans -fill white -stroke 'rgba(200,200,200,0.8)' -weight normal -gravity NorthWest -annotate +!+! ?", $bx+15, $by+5+27+23, $line3),
     );
     $filters = join(' ', $filters);
-    $cmd_template = "convert ? ! <out>"; 
+    $cmd_template = "convert ? ! <out.!>"; 
     VideoMixer::$cp->setTemplate($cmd_template);
     for($i=0;$i<count($frames);$i++)
     {
-      $frames[$i] = VideoMixer::$cp->add($frames[$i], $filters);
+      $frames[$i] = VideoMixer::$cp->add($frames[$i], $filters, VIDEO_EXT);
     }
     return $frames;
   }

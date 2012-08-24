@@ -41,13 +41,13 @@ class AudioClip
   {
     if(is_object($fname)) dprint('wtf');
     $parts = pathinfo($fname);
-    $ext = $parts['extension'];
+    $ext = strtolower($parts['extension']);
     switch($ext)
     {
       case 'mp4':
       case 'm4v':
       case 'mov':
-        $wav = AudioMixer::$cp->exec("ffmpeg -i ? -map 0:a -y <out>", $fname);
+        $wav = AudioMixer::$cp->exec("ffmpeg -i ? -map 0:a -y <out.!>", $fname, AUDIO_EXT);
         break;
       case 'wav':
         $wav = $fname;
@@ -57,7 +57,7 @@ class AudioClip
     }
     if(substr($wav, 0, strlen(self::$tmp_path))!=self::$tmp_path)
     {
-      $wav = AudioMixer::$cp->exec("sox -G ? -b 24 <out> remix - rate 48k", $wav);
+      $wav = AudioMixer::$cp->exec("sox -G ? -b 24 <out.!> remix - rate !", $wav, AUDIO_EXT, SAMPLE_RATE);
     }
     return $wav; 
   }

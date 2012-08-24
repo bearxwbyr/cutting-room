@@ -29,6 +29,11 @@ function cmd($cmd)
 {
   $args = func_get_args();
   $s = call_user_func_array('interpolate', $args);
+  return _cmd($s);
+}
+
+function _cmd($s)
+{
   echo($s."\n");
   exec($s . " 2>&1",$output, $result);
   if($result!=0)
